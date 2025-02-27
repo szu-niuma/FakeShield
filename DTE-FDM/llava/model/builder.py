@@ -56,8 +56,14 @@ def load_pretrained_model(model_path, model_base, model_name, load_8bit=False, l
             print('Loading LLaVA from base model...')
             model = LlavaLlamaForCausalLM.from_pretrained(model_base, low_cpu_mem_usage=True, config=lora_cfg_pretrained, **kwargs)
             token_num, tokem_dim = model.lm_head.out_features, model.lm_head.in_features
+            
+            # 检查 model.lm_head.weight 的形状是否与预期的 token 数量匹配
+            # 目的: 确保在加载 LoRA 权重之前，模型的输入和输出层能够适应可能扩展的词表大小。
+            # 确保模型组件之间的维度一致性，尤其是在处理多模态模型(如LLaVA)时，这些模型可能会扩展词表以包含特殊的视觉相关token。
             if model.lm_head.weight.shape[0] != token_num:
+                # 输出层权重矩阵
                 model.lm_head.weight = torch.nn.Parameter(torch.empty(token_num, tokem_dim, device=model.device, dtype=model.dtype))
+                # 词嵌入层权重矩阵
                 model.model.embed_tokens.weight = torch.nn.Parameter(torch.empty(token_num, tokem_dim, device=model.device, dtype=model.dtype))
 
             print('Loading additional LLaVA weights...')
@@ -79,6 +85,9 @@ def load_pretrained_model(model_path, model_base, model_name, load_8bit=False, l
             model.load_state_dict(non_lora_trainables, strict=False)
 
             from peft import PeftModel
+            """
+            PEFT Model​ 是指使用 ​Parameter-Efficient Fine-Tuning​（参数高效微调）技术的模型，专门用于在预训练大模型（如BERT、GPT、T5等）的基础上，通过仅调整少量参数来实现对下游任务的高效适配。这种方法在自然语言处理（NLP）领域广泛应用，旨在解决传统微调方法中资源消耗大、训练成本高的问题。
+            """
             print('Loading LoRA weights...')
             model = PeftModel.from_pretrained(model, model_path)
             print('Merging LoRA weights...')
@@ -88,12 +97,14 @@ def load_pretrained_model(model_path, model_base, model_name, load_8bit=False, l
             # this may be mm projector only
             print('Loading LLaVA from base model...')
             if 'mpt' in model_name.lower():
+                # ​专门处理 MPT（MosaicML Pretrained Transformer）模型。
                 if not os.path.isfile(os.path.join(model_path, 'configuration_mpt.py')):
                     shutil.copyfile(os.path.join(model_base, 'configuration_mpt.py'), os.path.join(model_path, 'configuration_mpt.py'))
                 tokenizer = AutoTokenizer.from_pretrained(model_base, use_fast=True)
                 cfg_pretrained = AutoConfig.from_pretrained(model_path, trust_remote_code=True)
                 model = LlavaMptForCausalLM.from_pretrained(model_base, low_cpu_mem_usage=True, config=cfg_pretrained, **kwargs)
             else:
+                # ​处理 LLaMA 或其他标准模型​（如 Vicuna）
                 tokenizer = AutoTokenizer.from_pretrained(model_base, use_fast=False)
                 cfg_pretrained = AutoConfig.from_pretrained(model_path)
                 model = LlavaLlamaForCausalLM.from_pretrained(model_base, low_cpu_mem_usage=True, config=cfg_pretrained, **kwargs)

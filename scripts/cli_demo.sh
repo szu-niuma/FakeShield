@@ -1,4 +1,4 @@
-WEIGHT_PATH=./weight/fakeshield-v1-22b
+WEIGHT_PATH=zhipeixu/fakeshield-v1-22b
 IMAGE_PATH=./playground/image/Sp_D_CRN_A_ani0043_ani0041_0373.jpg
 DTE_FDM_OUTPUT=./playground/DTE-FDM_output.jsonl
 MFLM_OUTPUT=./playground/MFLM_output

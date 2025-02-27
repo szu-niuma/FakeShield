@@ -7,8 +7,7 @@ from model.SAM import build_sam_vit_h
 from model.llava.model.language_model.llava_llama import LlavaLlamaForCausalLM, LlavaLlamaModel
 
 
-def calculate_dice_loss(predictions: torch.Tensor, ground_truth: torch.Tensor, mask_count: float, scale_factor=1000,
-                        epsilon=1e-6):
+def calculate_dice_loss(predictions: torch.Tensor, ground_truth: torch.Tensor, mask_count: float, scale_factor=1000, epsilon=1e-6):
     """
     Calculate the DICE loss, a measure similar to generalized IOU for masks.
     """
@@ -41,9 +40,7 @@ class GLaMMBaseModel:
         self.vision_pretrained = kwargs.get("vision_pretrained", None)
 
         # Set config attributes if they don't exist
-        self.config.train_mask_decoder = getattr(
-            self.config, "train_mask_decoder", kwargs.get("train_mask_decoder", False)
-        )
+        self.config.train_mask_decoder = getattr(self.config, "train_mask_decoder", kwargs.get("train_mask_decoder", False))
         self.config.out_dim = getattr(self.config, "out_dim", kwargs.get("out_dim", 512))
 
         self.initialize_glamm_model(self.config)
@@ -72,8 +69,12 @@ class GLaMMBaseModel:
 
     def _initialize_text_projection_layer(self):
         in_dim, out_dim = self.config.hidden_size, self.config.out_dim
-        text_projection_layers = [nn.Linear(in_dim, in_dim), nn.ReLU(inplace=True), nn.Linear(in_dim, out_dim),
-            nn.Dropout(0.0), ]
+        text_projection_layers = [
+            nn.Linear(in_dim, in_dim),
+            nn.ReLU(inplace=True),
+            nn.Linear(in_dim, out_dim),
+            nn.Dropout(0.0),
+        ]
         self.text_hidden_fcs = nn.ModuleList([nn.Sequential(*text_projection_layers)])
         self.text_hidden_fcs.train()
         self.text_hidden_fcs.train()
@@ -124,26 +125,38 @@ class GLaMMForCausalLM(LlavaLlamaForCausalLM):
             return torch.cat([self._encode_single_image(img) for img in pixel_values], dim=0)
 
     def _encode_single_image(self, image):
+        """
+        self.model.grounding_encoder.image_encoder: SAM的图像编码器
+        """
         torch.cuda.empty_cache()
         return self.model.grounding_encoder.image_encoder(image.unsqueeze(0))
 
     def forward(self, **kwargs):
         return super().forward(**kwargs) if "past_key_values" in kwargs else self.model_forward(**kwargs)
 
-    def model_forward(self, global_enc_images: torch.FloatTensor, grounding_enc_images: torch.FloatTensor,
-                      bboxes: torch.FloatTensor, input_ids: torch.LongTensor, labels: torch.LongTensor,
-                      attention_masks: torch.LongTensor, offset: torch.LongTensor, masks_list: List[torch.FloatTensor],
-                      label_list: List[torch.Tensor], resize_list: List[tuple], inference: bool = False, **kwargs, ):
-        
-        image_paths = kwargs.get('image_paths', None)
+    def model_forward(
+        self,
+        global_enc_images: torch.FloatTensor,
+        grounding_enc_images: torch.FloatTensor,
+        bboxes: torch.FloatTensor,
+        input_ids: torch.LongTensor,
+        labels: torch.LongTensor,
+        attention_masks: torch.LongTensor,
+        offset: torch.LongTensor,
+        masks_list: List[torch.FloatTensor],
+        label_list: List[torch.Tensor],
+        resize_list: List[tuple],
+        inference: bool = False,
+        **kwargs,
+    ):
+
+        image_paths = kwargs.get("image_paths", None)
 
         # Handle inference or training paths
         if inference:
             output_hidden_states = self._inference_path(input_ids, global_enc_images, attention_masks)
         else:
-            output, output_hidden_states = self._training_path(
-                global_enc_images, bboxes, input_ids, labels, attention_masks, offset
-            )
+            output, output_hidden_states = self._training_path(global_enc_images, bboxes, input_ids, labels, attention_masks, offset)
         if grounding_enc_images is not None:
             # Extract grounding encoder image embeddings
             image_embeddings = self.get_grounding_encoder_embs(grounding_enc_images)
@@ -156,12 +169,10 @@ class GLaMMForCausalLM(LlavaLlamaForCausalLM):
             hidden_states, pred_embeddings = self._process_hidden_states(output_hidden_states, seg_token_mask, offset)
 
             # Generate and post-process masks
-            pred_masks = self._generate_and_postprocess_masks(
-                pred_embeddings, image_embeddings, resize_list, label_list
-            )
+            pred_masks = self._generate_and_postprocess_masks(pred_embeddings, image_embeddings, resize_list, label_list)
 
             if inference:
-                return {"pred_masks": pred_masks, "gt_masks": masks_list, 'image_paths': image_paths}
+                return {"pred_masks": pred_masks, "gt_masks": masks_list, "image_paths": image_paths}
         else:
             pred_masks = None
 
@@ -170,10 +181,7 @@ class GLaMMForCausalLM(LlavaLlamaForCausalLM):
 
     def _create_seg_token_mask(self, input_ids):
         mask = input_ids[:, 1:] == self.seg_token_idx
-        return torch.cat(
-            [torch.zeros((mask.shape[0], 575)).bool().cuda(), mask, torch.zeros((mask.shape[0], 1)).bool().cuda()],
-            dim=1
-        )
+        return torch.cat([torch.zeros((mask.shape[0], 575)).bool().cuda(), mask, torch.zeros((mask.shape[0], 1)).bool().cuda()], dim=1)
 
     def _inference_path(self, input_ids, global_enc_images, attention_masks):
         length = input_ids.shape[0]
@@ -183,8 +191,11 @@ class GLaMMForCausalLM(LlavaLlamaForCausalLM):
         output_hidden_states = []
         for i in range(input_ids.shape[0]):
             output_i = super().forward(
-                images=global_enc_images_extended[i:i + 1], attention_mask=attention_masks[i:i + 1],
-                input_ids=input_ids[i:i + 1], output_hidden_states=True, )
+                images=global_enc_images_extended[i : i + 1],
+                attention_mask=attention_masks[i : i + 1],
+                input_ids=input_ids[i : i + 1],
+                output_hidden_states=True,
+            )
             output_hidden_states.append(output_i.hidden_states)
             torch.cuda.empty_cache()
 
@@ -197,8 +208,13 @@ class GLaMMForCausalLM(LlavaLlamaForCausalLM):
         bboxes_list = bboxes
 
         output = super().forward(
-            images=global_enc_images, attention_mask=attention_masks, input_ids=input_ids, labels=labels,
-            output_hidden_states=True, bboxes=bboxes_list, )
+            images=global_enc_images,
+            attention_mask=attention_masks,
+            input_ids=input_ids,
+            labels=labels,
+            output_hidden_states=True,
+            bboxes=bboxes_list,
+        )
         output_hidden_states = output.hidden_states
         return output, output_hidden_states
 
@@ -211,6 +227,15 @@ class GLaMMForCausalLM(LlavaLlamaForCausalLM):
         return torch.cat(global_enc_image_list, dim=0)
 
     def _process_hidden_states(self, output_hidden_states, seg_token_mask, offset, infer=False):
+        """
+        output_hidden_states: 模型生成的隐藏状态，通常是transformer层的输出
+        seg_token_mask: 一个布尔掩码，标记输入序列中分割标记(seg_token)的位置
+        offset: 批处理中每个样本的偏移量
+        infer: 布尔值，表示是否处于推理模式
+
+        分割批处理样本：在批处理中，多个样本的数据被连接在一起处理。偏移量帮助模型识别每个样本的边界。
+        正确提取分割标记嵌入：每个样本可能包含不同数量的分割标记(seg_token)。通过计算偏移量，可以确保为每个样本提取正确的分割标记嵌入。
+        """
         hidden_states = [self.model.text_hidden_fcs[0](output_hidden_states[-1])]
         last_hidden_state = torch.stack(hidden_states, dim=-1).sum(dim=-1)
         pred_embeddings = last_hidden_state[seg_token_mask]
@@ -230,19 +255,27 @@ class GLaMMForCausalLM(LlavaLlamaForCausalLM):
     def _generate_and_postprocess_masks(self, pred_embeddings, image_embeddings, resize_list, label_list, infer=False):
         pred_masks = []
         for i, pred_embedding in enumerate(pred_embeddings):
+            # 大预言模型输出的pred_embedding
             sparse_embeddings, dense_embeddings = self.model.grounding_encoder.prompt_encoder(
                 points=None, boxes=None, masks=None, text_embeds=pred_embedding.unsqueeze(1)
             )
             sparse_embeddings = sparse_embeddings.to(pred_embedding.dtype)
+
+            # SAM的图像编码器输出
             low_res_masks, _ = self.model.grounding_encoder.mask_decoder(
                 image_embeddings=image_embeddings[i].unsqueeze(0),
                 image_pe=self.model.grounding_encoder.prompt_encoder.get_dense_pe(),
-                sparse_prompt_embeddings=sparse_embeddings, dense_prompt_embeddings=dense_embeddings,
-                multimask_output=False, )
+                sparse_prompt_embeddings=sparse_embeddings,
+                dense_prompt_embeddings=dense_embeddings,
+                multimask_output=False,
+            )
             orig_size = label_list[i].shape if not infer else label_list[i]
             # During inference, we have original size list in place of label list
             pred_mask = self.model.grounding_encoder.postprocess_masks(
-                low_res_masks, input_size=resize_list[i], original_size=orig_size, )
+                low_res_masks,
+                input_size=resize_list[i],
+                original_size=orig_size,
+            )
             pred_masks.append(pred_mask[:, 0])
         return pred_masks
 
@@ -264,17 +297,14 @@ class GLaMMForCausalLM(LlavaLlamaForCausalLM):
                     gt_mask = masks_list[batch_idx]
                     # Resize gt_mask to match pred_mask if needed
                     if gt_mask.shape[0] != pred_mask.shape[0]:
-                        gt_mask = gt_mask[:pred_mask.shape[0]]
+                        gt_mask = gt_mask[: pred_mask.shape[0]]
 
-                    assert gt_mask.shape[0] == pred_mask.shape[
-                        0], f"Shape mismatch: gt_mask {gt_mask.shape}, pred_mask {pred_mask.shape}"
+                    assert gt_mask.shape[0] == pred_mask.shape[0], f"Shape mismatch: gt_mask {gt_mask.shape}, pred_mask {pred_mask.shape}"
 
                     # Compute Binary Cross-Entropy Loss
-                    mask_bce_loss += (compute_sigmoid_cross_entropy(pred_mask, gt_mask, mask_count=gt_mask.shape[0]) *
-                                      gt_mask.shape[0])
+                    mask_bce_loss += compute_sigmoid_cross_entropy(pred_mask, gt_mask, mask_count=gt_mask.shape[0]) * gt_mask.shape[0]
                     # Compute Dice Loss
-                    mask_dice_loss += (
-                            calculate_dice_loss(pred_mask, gt_mask, mask_count=gt_mask.shape[0]) * gt_mask.shape[0])
+                    mask_dice_loss += calculate_dice_loss(pred_mask, gt_mask, mask_count=gt_mask.shape[0]) * gt_mask.shape[0]
                     num_masks += gt_mask.shape[0]
 
         # Normalize the losses
@@ -284,15 +314,34 @@ class GLaMMForCausalLM(LlavaLlamaForCausalLM):
 
         # Aggregate all loss components
         total_loss = ce_loss + mask_loss
-        return {"loss": total_loss, "ce_loss": ce_loss, "mask_bce_loss": mask_bce_loss,
-                "mask_dice_loss": mask_dice_loss, "mask_loss": mask_loss, }
+        return {
+            "loss": total_loss,
+            "ce_loss": ce_loss,
+            "mask_bce_loss": mask_bce_loss,
+            "mask_dice_loss": mask_dice_loss,
+            "mask_loss": mask_loss,
+        }
 
-    def evaluate(self, global_enc_images, grounding_enc_images, input_ids, resize_list, orig_sizes, max_tokens_new=32,
-                 bboxes=None, ):
+    def evaluate(
+        self,
+        global_enc_images,
+        grounding_enc_images,
+        input_ids,
+        resize_list,
+        orig_sizes,
+        max_tokens_new=32,
+        bboxes=None,
+    ):
         with torch.no_grad():
             generation_outputs = self.generate(
-                images=global_enc_images, input_ids=input_ids, bboxes=bboxes, max_new_tokens=max_tokens_new,
-                num_beams=1, output_hidden_states=True, return_dict_in_generate=True, )
+                images=global_enc_images,
+                input_ids=input_ids,
+                bboxes=bboxes,  # 边界框信息，用于区域定位和分割
+                max_new_tokens=max_tokens_new,
+                num_beams=1,  # 更高的值会提高生成质量但增加计算开销
+                output_hidden_states=True,
+                return_dict_in_generate=True,
+            )
 
             output_hidden_states = generation_outputs.hidden_states
             generated_output_ids = generation_outputs.sequences
@@ -300,14 +349,20 @@ class GLaMMForCausalLM(LlavaLlamaForCausalLM):
             seg_token_mask = generated_output_ids[:, 1:] == self.seg_token_idx
             # Adjusting for IMAGE_TOKEN_INDEX (assuming single image at start)
             seg_token_mask = torch.cat(
-                [torch.zeros((seg_token_mask.shape[0], 575), dtype=torch.bool).cuda(), seg_token_mask], dim=1, )
-            # Process hidden states
-            hidden_states, predicted_embeddings = self._process_hidden_states(
-                output_hidden_states, seg_token_mask, None, infer=True
+                [torch.zeros((seg_token_mask.shape[0], 575), dtype=torch.bool).cuda(), seg_token_mask],
+                dim=1,
             )
+            # Process hidden states
+            # 获取LLM的隐藏状态和预测嵌入
+            hidden_states, predicted_embeddings = self._process_hidden_states(output_hidden_states, seg_token_mask, None, infer=True)
+            # 获取SAM的图像编码器输出
             image_embeddings = self.get_grounding_encoder_embs(grounding_enc_images)
             # Generate and post-process masks
             pred_masks = self._generate_and_postprocess_masks(
-                predicted_embeddings, image_embeddings, resize_list, orig_sizes, infer=True
+                predicted_embeddings,
+                image_embeddings,
+                resize_list,
+                orig_sizes,
+                infer=True,
             )
         return generated_output_ids, pred_masks
