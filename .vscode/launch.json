@@ -15,9 +15,9 @@
             "name": "DTE-FDM 调试",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/cli.py",
+            "program": "${workspaceFolder}/DTE_cli.py",
             "env": {
-                "CUDA_VISIBLE_DEVICES": "2"
+                "CUDA_VISIBLE_DEVICES": "6"
             },
             "args": [
                 "--model-path",
@@ -34,20 +34,22 @@
             "name": "MFLM 调试",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/MFLM/cli_demo.py",
+            "program": "${workspaceFolder}/MFLM_cli.py",
             "cwd": "${workspaceFolder}",
+            "justMyCode": false,
             "env": {
-                "CUDA_VISIBLE_DEVICES": "6"
+                "CUDA_VISIBLE_DEVICES": "5"
             },
             "args": [
                 "--version",
-                "zhipeixu/fakeshield-v1-22b/MFLM",
+                "/home/yuyangxin/.cache/huggingface/hub/models--zhipeixu--fakeshield-v1-22b/snapshots/d0487aa9a8d7313c85e4cbef9de1e3a00fdc23c2/MFLM",
                 "--DTE-FDM-output",
-                "./playground/DTE-FDM_output.jsonl",
+                "/home/yuyangxin/data/FakeShield/playground/MagicBrush_",
                 "--MFLM-output",
-                "./playground/MFLM_output"
+                "/home/yuyangxin/data/FakeShield/playground/MFLM_output",
+                "--target_type",
+                "real_img"
             ],
-            "preLaunchTask": "安装依赖"
         },
     ]
 }

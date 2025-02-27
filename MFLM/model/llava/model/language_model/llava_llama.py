@@ -20,7 +20,7 @@ from transformers.modeling_outputs import CausalLMOutputWithPast
 from transformers import (AutoConfig, AutoModelForCausalLM, LlamaConfig,
                           LlamaForCausalLM, LlamaModel)
 
-from model.llava.llava_with_region_arch import LlavaMetaForCausalLM, LlavaMetaModel
+from ...llava_with_region_arch import LlavaMetaForCausalLM, LlavaMetaModel
 
 
 class LlavaConfig(LlamaConfig):

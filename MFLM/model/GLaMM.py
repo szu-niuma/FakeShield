@@ -3,8 +3,8 @@ import torch.nn as nn
 from typing import List
 import torch.nn.functional as F
 
-from model.SAM import build_sam_vit_h
-from model.llava.model.language_model.llava_llama import LlavaLlamaForCausalLM, LlavaLlamaModel
+from .SAM import build_sam_vit_h
+from .llava.model.language_model.llava_llama import LlavaLlamaForCausalLM, LlavaLlamaModel
 
 
 def calculate_dice_loss(predictions: torch.Tensor, ground_truth: torch.Tensor, mask_count: float, scale_factor=1000, epsilon=1e-6):

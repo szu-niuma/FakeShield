@@ -1,4 +1,4 @@
-from model.llava.model.multimodal_encoder.clip_encoder import CLIPVisionTower
+from ...model.multimodal_encoder.clip_encoder import CLIPVisionTower
 
 
 def build_vision_tower(vision_tower_cfg, **kwargs):
