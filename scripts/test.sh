@@ -12,10 +12,10 @@ python ./DTE-FDM/llava/eval/model_vqa.py \
     --image-folder / \
     --answers-file ${DTE_FDM_OUTPUT} \
 
-pip install -q transformers==4.28.0  > /dev/null 2>&1
-CUDA_VISIBLE_DEVICES=0 \
-python ./MFLM/test.py \
-    --version ${WEIGHT_PATH}/MFLM \
-    --DTE-FDM-output ${DTE_FDM_OUTPUT} \
-    --MFLM-output ${MFLM_OUTPUT}
+# pip install -q transformers==4.28.0  > /dev/null 2>&1
+# CUDA_VISIBLE_DEVICES=0 \
+# python ./MFLM/test.py \
+#     --version ${WEIGHT_PATH}/MFLM \
+#     --DTE-FDM-output ${DTE_FDM_OUTPUT} \
+#     --MFLM-output ${MFLM_OUTPUT}
 

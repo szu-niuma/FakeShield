@@ -1,4 +1,8 @@
 playground/MFLM_output/*
+MFLM_output/*
+scripts/*
+*.pyc
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
